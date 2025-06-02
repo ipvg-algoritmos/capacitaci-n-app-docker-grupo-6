@@ -5,6 +5,7 @@ import string
 from datetime import date
 
 import django
+from django.db.utils import IntegrityError
 
 from config import settings
 
@@ -12,84 +13,148 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 from core.pos.models import Product, Category, Client, SaleDetail, Sale, Company
+from core.user.models import User
 
 
 def insert_data():
     numbers = list(string.digits)
 
-    company = Company()
-    company.name = 'POS-STORE S.A.'
-    company.ruc = '0928363993001'
-    company.address = 'MILAGRO, CDLA PAQUISHA'
-    company.mobile = '0996555528'
-    company.phone = '2977557'
-    company.email = 'williamjair94@hotmail.com'
-    company.website = 'https://algorisoft.com'
-    company.description = 'VENTA AL POR MAYOR Y MENOS DE PRODUCTOS DE PRIMERA NECESIDAD'
-    company.iva = 12.00
-    company.save()
+    # Empresa
+    if not Company.objects.exists():
+        company = Company(
+            name='POS-STORE S.A.',
+            ruc='0928363993001',
+            address='MILAGRO, CDLA PAQUISHA',
+            mobile='0996555528',
+            phone='2977557',
+            email='williamjair94@hotmail.com',
+            website='https://algorisoft.com',
+            description='VENTA AL POR MAYOR Y MENOS DE PRODUCTOS DE PRIMERA NECESIDAD',
+            iva=12.00
+        )
+        company.save()
+        print("✅ Empresa insertada")
+    else:
+        print("🔁 Empresa ya existente")
 
-    with open(f'{settings.BASE_DIR}/deploy/json/products.json', encoding='utf8') as json_file:
-        for item in json.load(json_file):
-            product = Product()
-            product.name = item['name']
-            product.code = item['code']
-            product.category = Category.objects.get_or_create(name=item['category'])[0]
-            product.price = float(item['price'])
-            product.pvp = float(item['pvp'])
-            product.stock = random.randint(50, 150)
-            product.save()
-            print(f'record inserted product {product.id}')
+    # Productos
+    try:
+        with open(f'{settings.BASE_DIR}/deploy/json/products.json', encoding='utf8') as json_file:
+            for item in json.load(json_file):
+                if not Product.objects.filter(code=item['code']).exists():
+                    category, _ = Category.objects.get_or_create(name=item['category'])
+                    product = Product(
+                        name=item['name'],
+                        code=item['code'],
+                        category=category,
+                        price=float(item['price']),
+                        pvp=float(item['pvp']),
+                        stock=random.randint(50, 150)
+                    )
+                    product.save()
+                    print(f'✅ Producto insertado: {product.name}')
+                else:
+                    print(f'🔁 Producto ya existente: {item["code"]}')
+    except FileNotFoundError:
+        print("❌ No se encontró el archivo de productos.")
 
-    category = Category.objects.create(name='SERVICIOS')
-    Product(name='FORMATEO DE COMPUTADORAS', category=category, is_service=True, with_tax=False, pvp=15.00, code='FORMATEO85451').save()
+    # Servicio único
+    if not Product.objects.filter(code='FORMATEO85451').exists():
+        category, _ = Category.objects.get_or_create(name='SERVICIOS')
+        Product.objects.create(
+            name='FORMATEO DE COMPUTADORAS',
+            category=category,
+            is_service=True,
+            with_tax=False,
+            pvp=15.00,
+            code='FORMATEO85451'
+        )
+        print("✅ Servicio insertado")
+    else:
+        print("🔁 Servicio ya existente")
 
-    client = Client()
-    client.names = 'Consumidor Final'
-    client.dni = '9999999999999'
-    client.email = 'davilawilliam94@gmail.com'
-    client.birthdate = date(1994, 10, 19)
-    client.mobile = '9999999999'
-    client.address = 'Milagro, cdla. Paquisha'
-    client.save()
+    # Cliente "Consumidor Final"
+    if not Client.objects.filter(dni='9999999999999').exists():
+        Client.objects.create(
+            names='Consumidor Final',
+            dni='9999999999999',
+            email='davilawilliam94@gmail.com',
+            birthdate=date(1994, 10, 19),
+            mobile='9999999999',
+            address='Milagro, cdla. Paquisha'
+        )
+        print("✅ Cliente 'Consumidor Final' insertado")
+    else:
+        print("🔁 Cliente 'Consumidor Final' ya existe")
 
-    with open(f'{settings.BASE_DIR}/deploy/json/customers.json', encoding='utf8') as json_file:
-        data = json.load(json_file)
-        for item in data[0:20]:
-            client = Client()
-            client.names = f"{item['first']} {item['last']}"
-            client.dni = ''.join(random.choices(numbers, k=10))
-            client.birthdate = date(random.randint(1969, 2006), random.randint(1, 12), random.randint(1, 28))
-            client.mobile = ''.join(random.choices(numbers, k=10))
-            client.email = item['email']
-            client.address = item['country']
-            client.save()
-            print(f'record inserted client {client.id}')
+    # Clientes desde JSON
+    try:
+        with open(f'{settings.BASE_DIR}/deploy/json/customers.json', encoding='utf8') as json_file:
+            data = json.load(json_file)
+            for item in data[0:20]:
+                email = item['email']
+                if not Client.objects.filter(email=email).exists():
+                    client = Client(
+                        names=f"{item['first']} {item['last']}",
+                        dni=''.join(random.choices(numbers, k=10)),
+                        birthdate=date(random.randint(1969, 2006), random.randint(1, 12), random.randint(1, 28)),
+                        mobile=''.join(random.choices(numbers, k=10)),
+                        email=email,
+                        address=item['country']
+                    )
+                    client.save()
+                    print(f'✅ Cliente insertado: {client.names}')
+                else:
+                    print(f'🔁 Cliente ya existe: {email}')
+    except FileNotFoundError:
+        print("❌ No se encontró el archivo de clientes.")
 
-    client_id = list(Client.objects.filter().values_list('id', flat=True))
-    for i in range(1, random.randint(6, 10)):
-        sale = Sale()
-        sale.company_id = 1
-        sale.employee_id = 1
-        sale.client_id = random.choice(client_id)
-        sale.iva = 0.12
+    # Ventas aleatorias (si hay clientes y productos)
+    client_ids = list(Client.objects.values_list('id', flat=True))
+    product_ids = list(Product.objects.values_list('id', flat=True))
+
+    if not client_ids or not product_ids:
+        print("❌ No hay clientes o productos disponibles para generar ventas.")
+        return
+
+    employee = User.objects.first()
+    if not employee:
+        print("❌ No se encontró ningún usuario para registrar ventas.")
+        return
+
+    for _ in range(random.randint(6, 10)):
+        sale = Sale(
+            company_id=1,
+            employee_id=employee.id,
+            client_id=random.choice(client_ids),
+            iva=0.12
+        )
         sale.save()
-        print(f'record inserted sale {sale.id}')
-        for d in range(1, 8):
-            list_products = list(Product.objects.filter(stock__gt=0).values_list(flat=True))
-            if len(list_products):
-                detail = SaleDetail()
-                detail.sale_id = sale.id
-                detail.product_id = random.choice(list_products)
-                detail.cant = random.randint(1, int((detail.product.stock * 0.30)))
-                detail.price = detail.product.pvp
-                detail.save()
-                detail.product.stock -= detail.cant
-                detail.product.save()
+
+        for _ in range(1, 8):
+            available_products = Product.objects.filter(stock__gt=0)
+            if not available_products.exists():
+                continue
+
+            product = random.choice(available_products)
+            cant = random.randint(1, max(1, int(product.stock * 0.3)))
+
+            detail = SaleDetail(
+                sale=sale,
+                product=product,
+                cant=cant,
+                price=product.pvp
+            )
+            detail.save()
+
+            product.stock -= cant
+            product.save()
+
         sale.calculate_detail()
         sale.calculate_invoice()
         sale.cash = sale.total
         sale.save()
+        print(f'✅ Venta insertada: {sale.id}')
 
 
 insert_data()

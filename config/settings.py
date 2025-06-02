@@ -22,7 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
 
-environ.Env.read_env(os.path.join(BASE_DIR, '.env.local'))
+ENV_FILE = os.environ.get("ENV_FILE", ".env.local")  # o ".env.prod"
+environ.Env.read_env(os.path.join(BASE_DIR, ENV_FILE))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -64,6 +65,7 @@ INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -99,23 +101,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
-def get_db_config(environ_var='DATABASE_URL'):
-    """Get Database configuration."""
-    options = env.db(var=environ_var, default='sqlite:///db.sqlite3')
-    if options.get('ENGINE') != 'django.db.backends.sqlite3':
-        return options
-
-    # This will allow use a relative to the project root DB path
-    # for SQLite like 'sqlite:///db.sqlite3'
-    if not options['NAME'] == ':memory:' and not os.path.isabs(options['NAME']):
-        options.update({'NAME': os.path.join(BASE_DIR, options['NAME'])})
-
-    return options
-
-
 DATABASES = {
-    'default': get_db_config()
+    'default': {
+        'ENGINE': env('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': env('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
+        'USER': env('DB_USER', default=''),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default=''),
+        'PORT': env('DB_PORT', default=''),
+    }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -195,3 +191,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Separación de lógica de manifest storage para archivos estáticos
+USE_MANIFEST = env.bool("USE_MANIFEST", default=not DEBUG)
+
+if DEBUG or not USE_MANIFEST:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
