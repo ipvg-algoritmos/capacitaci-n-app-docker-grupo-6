@@ -18,9 +18,8 @@ echo "📦 Recolectando archivos estáticos..."
 python manage.py collectstatic --noinput
 if [ $? -ne 0 ]; then
   echo "❌ Error: Falló la recolección de archivos estáticos."
-  echo "   🔍 Revisa si hay rutas incorrectas o archivos faltantes en CSS/JS."
   exit 1
 fi
 
-echo "🚀 Iniciando servidor Django..."
-exec python manage.py runserver 0.0.0.0:8000
+echo "🚀 Iniciando servidor con Gunicorn..."
+exec gunicorn config.wsgi:application --bind 0.0.0.0:8000
