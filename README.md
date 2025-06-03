@@ -4,6 +4,12 @@
 **POS Store Cloud Edition – Despliegue resiliente en AWS para PYMEs chilenas**
 
 ---
+**Integrantes:**
+*Alejandro Robles
+*Benjamín Saez
+*David Grandon
+*Moira Bosman
+---
 
 ## 📘 Descripción general
 
