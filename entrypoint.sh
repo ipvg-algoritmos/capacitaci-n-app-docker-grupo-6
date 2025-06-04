@@ -21,5 +21,18 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+echo "🩺 Verificando ruta de salud..."
+HEALTH_ROUTE_FILE="config/health_url.py"
+if ! grep -q "path(\"health/" config/urls.py; then
+  echo "🔧 Agregando ruta de /health automáticamente"
+  echo 'from django.http import HttpResponse' > "$HEALTH_ROUTE_FILE"
+  echo 'health_view = lambda request: HttpResponse("OK")' >> "$HEALTH_ROUTE_FILE"
+  echo '' >> "$HEALTH_ROUTE_FILE"
+  echo 'urlpatterns.append(path("health/", health_view, name="health"))' >> "$HEALTH_ROUTE_FILE"
+
+  # Agrega include dinámico si no existe
+  echo 'from config import health_url' >> config/urls.py
+fi
+
 echo "🚀 Iniciando servidor con Gunicorn..."
 exec gunicorn config.wsgi:application --bind 0.0.0.0:8000
