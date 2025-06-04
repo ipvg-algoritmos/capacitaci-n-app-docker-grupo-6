@@ -16,6 +16,7 @@ Including another URLconf
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
 
 
 from config import settings
@@ -24,6 +25,7 @@ from core.dashboard.views import DashboardView
 urlpatterns = [
     path('', include('core.login.urls')),
     path('admin/', admin.site.urls),
+    path('health/', lambda request: HttpResponse("OK"), name="health"),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('pos/', include('core.pos.urls')),
     path('reports/', include('core.reports.urls')),
