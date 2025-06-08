@@ -129,3 +129,6 @@ class LoginUpdatePasswordView(FormView):
         context['title'] = 'Recuperación de Contraseña'
         context['list_url'] = self.success_url
         return context
+
+    def health_check(request):
+        return HttpResponse("OK", status=200)
