@@ -19,7 +19,7 @@ from django.urls import path, include
 from django.http import HttpResponse
 from config import settings
 from core.dashboard.views import DashboardView
-from core.login.views import health_check  # si no está ya importado
+from core.login.views_health import health_check_view  # <- aquí el cambio
 
 urlpatterns = [
     path('', include('core.login.urls')),
@@ -29,7 +29,7 @@ urlpatterns = [
     path('reports/', include('core.reports.urls')),
     path('security/', include('core.security.urls')),
     path('user/', include('core.user.urls')),
-    path('healthz/', health_check, name='healthz'),
+    path('healthz/', health_check_view, name='healthz'),
 ]
 
 if settings.DEBUG:
