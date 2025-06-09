@@ -1,127 +1,101 @@
 # 🍎 POS Store Cloud Edition - Grupo 6
 
-**Nombre del proyecto:**
+**Nombre del proyecto:**  
 **POS Store Cloud Edition – Despliegue resiliente en AWS para PYMEs chilenas**
 
 ---
-**Integrantes:**
-*Alejandro Robles
-*Benjamín Saez
-*David Grandon
-*Moira Bosman
+
+**Integrantes:**  
+- Alejandro Robles  
+- Benjamín Saez  
+- David Grandon  
+- Moira Bosman  
+
 ---
 
 ## 📘 Descripción general
 
-Este proyecto es una adaptación del sistema de punto de venta (POS) original de AlgoriSoft, implementado y contenedorizado por el Grupo 6 como parte del módulo de **Cloud Computing y Virtualización**.
-La aplicación ha sido rediseñada para funcionar en una arquitectura resiliente sobre AWS, permitiendo escalabilidad horizontal, monitoreo, almacenamiento desacoplado y despliegue eficiente a través de contenedores Docker.
-
-El objetivo es ofrecer una solución lista para producción que permita a pequeñas y medianas empresas chilenas utilizar un sistema de ventas robusto, moderno y económico.
+Este proyecto es una adaptación del sistema de punto de venta (POS) original de AlgoriSoft, implementado y contenedorizado por el Grupo 6 como parte del módulo de **Cloud Computing y Virtualización**.  
+La aplicación ha sido rediseñada para funcionar en una arquitectura resiliente sobre AWS, con el objetivo de ofrecer una solución moderna y económica para PYMEs chilenas.
 
 ---
 
-## 🧱 Arquitectura propuesta (AWS)
+## 🧱 Arquitectura implementada
 
-El sistema ha sido implementado sobre una arquitectura **cloud-native en EC2**, con los siguientes componentes:
+El sistema fue desplegado usando servicios gestionados de AWS:
 
-* 🌐 **Route 53**: Gestión DNS con nombre de dominio personalizado
-* ⚖️ **Application Load Balancer (ALB)**: Distribución del tráfico entrante a través de zonas de disponibilidad
-* 🛣️ **EC2 (Docker Containers)**: Contenedores ejecutando la aplicación Django
-* 📃️ **Amazon RDS (PostgreSQL)**: Base de datos relacional administrada
-* 📦 **Amazon S3**: Almacenamiento de archivos estáticos y media
-* 📊 **CloudWatch**: Monitoreo y visualización de métricas y logs
+- 🌐 **Route 53**: Gestión DNS con dominio personalizado `posstore.store`.
+- ⚙️ **Amazon EC2**: Instancia con Amazon Linux 2, Docker, Nginx y Gunicorn. Contenedor ejecutando la app Django.
+- 🛢️ **Amazon RDS (PostgreSQL)**: Base de datos relacional gestionada, con acceso seguro.
+- 🐳 **Docker**: Empaquetado de la aplicación para facilitar despliegues reproducibles.
+- ⚖️ **Application Load Balancer (ALB)**: Configurado, pero no activo por estado "unhealthy". Se utiliza IP elástica temporalmente.
+
+**Nota**: No se utilizó S3 ni backups automáticos en esta versión por decisión técnica y de tiempo.
 
 ---
 
 ## 🚀 Despliegue en EC2 (Producción)
 
-### 1. Instancia EC2 (Amazon Linux 2)
-
-Conéctate vía SSH e instala Docker:
-
 ```bash
+# Conexión a EC2
+ssh -i "C:\Users\aleja\OneDrive\Desktop\llave3ev.pem" ec2-user@3.225.77.165
+
+# Preparar entorno
 sudo yum update -y
 sudo amazon-linux-extras enable docker
-sudo yum install docker -y
+sudo yum install docker git -y
 sudo service docker start
 sudo usermod -aG docker ec2-user
-```
+exit  # volver a entrar
 
-Recuerda cerrar sesión y volver a conectarte para aplicar el grupo docker.
-
-### 2. Clonar el proyecto y construir el contenedor
-
-```bash
+# Clonar y desplegar la app
 git clone https://github.com/ipvg-algoritmos/capacitaci-n-app-docker-grupo-6.git
 cd capacitaci-n-app-docker-grupo-6
-```
 
-Crea un archivo `.env.prod` con las variables necesarias:
-
-```env
-DEBUG=False
+# Crear archivo .env.prod
+echo "DEBUG=False
 SECRET_KEY=tu_clave_secreta
 ALLOWED_HOSTS=*
 DB_NAME=nombre_base
 DB_USER=usuario
 DB_PASSWORD=contraseña
-DB_HOST=hostname_de_rds
-```
+DB_HOST=hostname_de_rds" > .env.prod
 
-Luego ejecuta:
-
-```bash
+# Construir y correr
 docker build -t pos-store .
 docker run -d --env-file .env.prod -p 8000:8000 pos-store
+
+# Comandos útiles
+git pull
+docker logs [ID]
+docker ps -a
+docker container prune -f
+docker image prune -f
+
+# Evitar desconexiones
+ssh -i "C:\Users\aleja\OneDrive\Desktop\llave3ev.pem" -o ServerAliveInterval=60 ec2-user@3.225.77.165
 ```
-
-### 3. Configurar puerto y grupo de seguridad
-
-Asegúrate de que tu instancia EC2 permita conexiones entrantes en el puerto 8000 desde el grupo de seguridad del ALB.
-
-El Application Load Balancer debe estar enlazado al Target Group que revisa HTTP:8000.
 
 ---
 
 ## 💻 Despliegue local (Desarrollo)
 
-### 1. Clona este repositorio
-
 ```bash
+# Clonar el proyecto
 git clone https://github.com/ipvg-algoritmos/capacitaci-n-app-docker-grupo-6.git
 cd capacitaci-n-app-docker-grupo-6
-```
 
-### 2. Crea y activa el entorno virtual
-
-```bash
+# Crear y activar entorno virtual
 python -m venv venv
-venv\Scripts\activate.bat        # Windows
-# o
-source venv/bin/activate         # Linux/macOS
-```
+source venv/bin/activate  # Windows: venv\Scripts\activate.bat
 
-### 3. Instala las dependencias
-
-```bash
+# Instalar dependencias
 pip install -r deploy/txt/requirements.txt
-```
 
-### 4. Migraciones y carga inicial
-
-```bash
+# Migraciones y carga inicial
 python manage.py migrate
-python manage.py shell --command='from core.init import *'
-python manage.py shell --command='from core.utils import *'   # Opcional
-```
-
-### 5. Ejecuta el servidor local
-
-```bash
 python manage.py runserver
 ```
-
-Visita: [http://localhost:8000](http://localhost:8000)
 
 ---
 
@@ -139,31 +113,42 @@ password: hacker94
 ```
 ├── config/           # Configuración global Django
 ├── core/             # Módulo principal del POS
-├── deploy/           # Requerimientos y scripts de instalación
+├── deploy/           # Scripts y requerimientos
 ├── static/           # Archivos estáticos
 ├── templates/        # Vistas HTML
-├── Dockerfile        # Imagen para contenedor
-├── entrypoint.sh     # Script de entrada del contenedor
-├── .env.prod         # Variables de entorno para producción
-├── manage.py         # Utilidad de Django
+├── Dockerfile        # Imagen contenedor
+├── entrypoint.sh     # Script de entrada
+├── .env.prod         # Variables de entorno
+├── manage.py         # Utilidad principal de Django
 ```
+
+---
+
+## 📊 Estado del proyecto
+
+- Aplicación 100% funcional
+- Dominio activo: [https://posstore.store](https://posstore.store)
+- Accesible desde dispositivos móviles y escritorio
+- Sin necesidad de entornos locales para ejecución
+- ALB no operativo (se usa IP directa)
+- SSL pendiente (requiere ALB funcional)
 
 ---
 
 ## 📙 Créditos
 
-* Proyecto base: AlgoriSoft en YouTube
-* Adaptación cloud y contenedorización: **Grupo 6 – IPVG**
-* Repositorio original: `https://github.com/wdavilav/pos-store`
+- Proyecto base: AlgoriSoft
+- Adaptación y despliegue: **Grupo 6 – IPVG**
+- Repositorio original: https://github.com/wdavilav/pos-store
 
 ---
 
-## 🧠 Propósito académico
+## 🎓 Propósito académico
 
 Este proyecto fue desarrollado como parte de la evaluación del módulo de **Cloud Computing y Virtualización**, integrando:
 
-* Arquitectura cloud moderna
-* Contenedores Docker
-* Gestión de infraestructura en AWS
-* Metodología de trabajo ágil (Scrum)
-
+- Arquitectura moderna en AWS
+- Contenedores Docker
+- Infraestructura como servicio
+- Gestión DNS con Route 53
+- Trabajo en equipo bajo metodología ágil (Scrum)
