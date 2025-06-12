@@ -34,7 +34,18 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = ['posstore.store', 'www.posstore.store', '3.225.77.165']
+ALLOWED_HOSTS = [
+    # dominio público
+    "posstore.store", "www.posstore.store",
+
+    # Elastic IP (solo si la usas directamente)
+    "3.225.77.165",
+
+    # === añade estos dos ===
+    "172.31.81.45",                            # IP privada de la instancia
+    "pos-alb-114494520.us-east-1.elb.amazonaws.com",  # DNS del ALB
+]
+
 
 # Application definition
 
