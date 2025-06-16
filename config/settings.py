@@ -35,16 +35,13 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = [
-    # dominio público
-    "posstore.store", "www.posstore.store",
-
-    # Elastic IP (solo si la usas directamente)
-    "3.225.77.165",
-
-    # === añade estos dos ===
-    "172.31.81.45",                            # IP privada de la instancia
-    "pos-alb-114494520.us-east-1.elb.amazonaws.com",  # DNS del ALB
+    "posstore.store",
+    "www.posstore.store",
+    "pos-alb-114494520.us-east-1.elb.amazonaws.com",   # DNS del ALB
+    "172.31.81.45",        # IP privada EC2 (solo si la usas)
+    "3.225.77.165",        # Elastic IP (solo si haces pruebas directas)
 ]
+
 
 
 # Application definition
@@ -210,3 +207,20 @@ if DEBUG or not USE_MANIFEST:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 else:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# 1️⃣  El ALB termina TLS y reenvía tráfico HTTP → haz que Django confíe
+#     en el encabezado X-Forwarded-Proto para saber que la conexión es segura.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 2️⃣  Dominios/orígenes que pueden enviar cookies CSRF
+CSRF_TRUSTED_ORIGINS = [
+    "https://posstore.store",
+    "https://www.posstore.store",
+    "https://pos-alb-114494520.us-east-1.elb.amazonaws.com",
+]
+
+# 3️⃣  Ajustes extra recomendados (cookies solo por HTTPS)
+CSRF_COOKIE_SECURE    = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE  = "Lax"   # evita el paso SameSite=None cuando no es necesario
