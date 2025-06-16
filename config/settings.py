@@ -18,195 +18,217 @@ import environ
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# initialize environment variables
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
 
 env = environ.Env()
 
-ENV_FILE = os.environ.get("ENV_FILE", ".env.local")  # o ".env.prod"
+# You can control the file loaded with the ENV_FILE variable so you have
+#   * .env.local  -> for local development
+#   * .env.prod   -> for the EC2 container
+#   * etc.
+ENV_FILE = os.environ.get("ENV_FILE", ".env.local")
 environ.Env.read_env(os.path.join(BASE_DIR, ENV_FILE))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
+# =============================================================================
+# CORE DJANGO SETTINGS
+# =============================================================================
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', default=True)
+SECRET_KEY = env("SECRET_KEY")
+DEBUG = env.bool("DEBUG", default=True)
 
 ALLOWED_HOSTS = [
-    # dominio público
-    "posstore.store", "www.posstore.store",
+    # domain names
+    "posstore.store",
+    "www.posstore.store",
 
-    # Elastic IP (solo si la usas directamente)
+    # Application Load Balancer DNS (útil para pruebas internas / health‑checks)
+    "pos-alb-114494520.us-east-1.elb.amazonaws.com",
+
+    # Elastic IP pública (si la usas directamente)
     "3.225.77.165",
 
-    # === añade estos dos ===
-    "172.31.81.45",                            # IP privada de la instancia
-    "pos-alb-114494520.us-east-1.elb.amazonaws.com",  # DNS del ALB
+    # IP privada de la instancia (por si haces curl desde la propia VPC)
+    "172.31.81.45",
 ]
 
+# -----------------------------------------------------------------------------
+# Security settings for X‑Forwarded headers behind an AWS ALB
+# -----------------------------------------------------------------------------
 
-# Application definition
+# The ALB termina TLS y reenvía tráfico HTTP a gunicorn; indicamos a Django que
+# confíe en ese encabezado para saber que la conexión original era HTTPS.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Cookies solo por HTTPS y mismo sitio por defecto
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# ALB/CNAME reales de confianza para peticiones POST (CSRF origin‑check)
+CSRF_TRUSTED_ORIGINS = [
+    "https://posstore.store",
+    "https://www.posstore.store",
+    "https://pos-alb-114494520.us-east-1.elb.amazonaws.com",
+]
+
+# =============================================================================
+# APPLICATIONS
+# =============================================================================
 
 DJANGO_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 ]
 
 THIRD_PARTY_APPS = [
-    'widget_tweaks',
-    'django_cleanup.apps.CleanupConfig',
-    'django_user_agents',
+    "widget_tweaks",
+    "django_cleanup.apps.CleanupConfig",
+    "django_user_agents",
 ]
 
 LOCAL_APPS = [
-    'core.login',
-    'core.pos',
-    'core.reports',
-    'core.security',
-    'core.user',
+    "core.login",
+    "core.pos",
+    "core.reports",
+    "core.security",
+    "core.user",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'crum.CurrentRequestUserMiddleware',
-    'django_user_agents.middleware.UserAgentMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "crum.CurrentRequestUserMiddleware",
+    "django_user_agents.middleware.UserAgentMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'core.security.context_processors.site_settings'
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "core.security.context_processors.site_settings",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
-
-# Database
-# https://docs.djangoproject.com/en/4.0/ref/settings/#databases
+# =============================================================================
+# DATABASE
+# =============================================================================
 
 DATABASES = {
-    'default': {
-        'ENGINE': env('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': env('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
-        'USER': env('DB_USER', default=''),
-        'PASSWORD': env('DB_PASSWORD', default=''),
-        'HOST': env('DB_HOST', default=''),
-        'PORT': env('DB_PORT', default=''),
+    "default": {
+        "ENGINE": env("DB_ENGINE", default="django.db.backends.sqlite3"),
+        "NAME": env("DB_NAME", default=os.path.join(BASE_DIR, "db.sqlite3")),
+        "USER": env("DB_USER", default=""),
+        "PASSWORD": env("DB_PASSWORD", default=""),
+        "HOST": env("DB_HOST", default=""),
+        "PORT": env("DB_PORT", default=""),
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
+# =============================================================================
+# PASSWORD VALIDATION
+# =============================================================================
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/4.0/topics/i18n/
+# =============================================================================
+# INTERNATIONALIZATION
+# =============================================================================
 
-LANGUAGE_CODE = 'es-ec'
-
-TIME_ZONE = 'US/Pacific'
-
+LANGUAGE_CODE = "es-ec"
+TIME_ZONE = "US/Pacific"
 USE_I18N = True
-
 USE_TZ = True
-
 USE_L10N = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.0/howto/static-files/
+# =============================================================================
+# STATIC & MEDIA
+# =============================================================================
 
-STATIC_URL = '/static/'
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# =============================================================================
+# AUTH / SESSIONS
+# =============================================================================
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/"
+LOGIN_URL = "/"
 
-MEDIA_URL = '/media/'
+AUTH_USER_MODEL = "user.User"
 
-# Auth
-
-LOGIN_REDIRECT_URL = '/dashboard/'
-
-LOGOUT_REDIRECT_URL = '/'
-
-LOGIN_URL = '/'
-
-AUTH_USER_MODEL = 'user.User'
-
-# Email
-
-EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
-EMAIL_HOST = env('EMAIL_HOST')
-EMAIL_PORT = env('EMAIL_PORT')
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-
-# Sessions
-
-SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
-
-SESSION_COOKIE_NAME = 'pos-store'
-
-SESSION_COOKIE_AGE = 60 * 240
-
+SESSION_SERIALIZER = "django.contrib.sessions.serializers.PickleSerializer"
+SESSION_COOKIE_NAME = "pos-store"
+SESSION_COOKIE_AGE = 60 * 240  # 4 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
+# =============================================================================
+# EMAIL
+# =============================================================================
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 
-# Separación de lógica de manifest storage para archivos estáticos
+# =============================================================================
+# STATIC FILES MANIFEST STRATEGY (WhiteNoise)
+# =============================================================================
+
 USE_MANIFEST = env.bool("USE_MANIFEST", default=not DEBUG)
 
 if DEBUG or not USE_MANIFEST:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 else:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# =============================================================================
+# DEFAULT PRIMARY KEY FIELD TYPE
+# =============================================================================
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
